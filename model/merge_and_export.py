@@ -145,11 +145,11 @@ def main():
     base_model_name = "Qwen/Qwen2.5-1.5B-Instruct"
 
     # 路径
-    base_dir = Path(__file__).parent
+    base_dir = Path(__file__).parent.parent
     lora_path = base_dir / "output" / "lora_model" / "lora_weights"
     merged_path = base_dir / "output" / "merged_model"
     gguf_path = base_dir / "output" / "sales-assistant.gguf"
-    modelfile_path = base_dir / "Modelfile"
+    modelfile_path = Path(__file__).parent / "Modelfile"
 
     # 检查 LoRA 权重是否存在
     if not lora_path.exists():

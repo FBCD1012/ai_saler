@@ -11,7 +11,7 @@ from pathlib import Path
 def load_model():
     """加载微调后的模型"""
     base_model_name = "Qwen/Qwen2.5-1.5B-Instruct"
-    lora_path = Path(__file__).parent / "output" / "lora_model" / "lora_weights"
+    lora_path = Path(__file__).parent.parent / "output" / "lora_model" / "lora_weights"
 
     print("加载基座模型...")
     tokenizer = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True)

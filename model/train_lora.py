@@ -123,8 +123,8 @@ def main():
     lora_config = LoRAConfig()
 
     # 路径
-    base_dir = Path(__file__).parent
-    data_dir = base_dir / "training_data"
+    base_dir = Path(__file__).parent.parent
+    data_dir = base_dir / "data" / "training_data"
     output_dir = base_dir / "output" / "lora_model"
     output_dir.mkdir(parents=True, exist_ok=True)
 
