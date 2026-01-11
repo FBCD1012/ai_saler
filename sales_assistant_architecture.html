@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI销售助手 - 本地部署架构</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #000;
+            min-height: 100vh;
+            color: #fff;
+        }
+        .page { max-width: 1100px; margin: 0 auto; padding: 48px 24px; }
+        h1 { font-size: 1.8em; font-weight: 400; margin-bottom: 8px; }
+        h1 span { color: #0f0; }
+        .subtitle { color: #555; margin-bottom: 40px; font-size: 0.9em; }
+        .card {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 28px;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: 0.7em;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #444;
+        }
+        .badge {
+            background: #0f0;
+            color: #000;
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 0.7em;
+            font-weight: 600;
+        }
+        svg { display: block; width: 100%; }
+        #arch-svg { height: 380px; }
+        #rag-svg { height: 220px; }
+        .btn {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 100px;
+            font-size: 0.8em;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn:hover { box-shadow: 0 0 24px rgba(0,255,0,0.4); }
+        .status { font-size: 0.8em; color: #555; margin-left: 12px; }
+        .note {
+            background: rgba(0,255,0,0.05);
+            border-left: 2px solid #0f0;
+            padding: 14px 18px;
+            margin-top: 20px;
+            font-size: 0.85em;
+            color: #888;
+        }
+        .note strong { color: #0f0; }
+        .tech-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .tech-tag {
+            background: #111;
+            border: 1px solid #222;
+            padding: 8px 14px;
+            border-radius: 100px;
+            font-size: 0.75em;
+            color: #666;
+        }
+        .tech-tag strong { color: #0f0; margin-right: 4px; }
+        .compare {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 20px;
+        }
+        .compare-item {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .compare-item.active {
+            border-color: #0f0;
+        }
+        .compare-item h3 {
+            font-size: 0.9em;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .compare-item h3 .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .compare-item ul {
+            list-style: none;
+            font-size: 0.8em;
+            color: #888;
+        }
+        .compare-item li {
+            padding: 4px 0;
+        }
+        .compare-item li::before {
+            content: "→ ";
+            color: #444;
+        }
+        .highlight { color: #0f0; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <h1>AI销售助手 <span>本地部署</span></h1>
+        <p class="subtitle">全部在你的电脑上运行 · 无需API费用 · 数据完全私有</p>
+
+        <!-- 对比 -->
+        <div class="compare">
+            <div class="compare-item">
+                <h3><span class="dot" style="background:#f55"></span>训练模型（你不需要）</h3>
+                <ul>
+                    <li>需要GPU集群</li>
+                    <li>成本几十万起</li>
+                    <li>需要大量数据</li>
+                    <li>需要ML专业知识</li>
+                </ul>
+            </div>
+            <div class="compare-item active">
+                <h3><span class="dot" style="background:#0f0"></span>本地部署（你需要的）</h3>
+                <ul>
+                    <li class="highlight">一行命令安装</li>
+                    <li class="highlight">你的Mac就能跑</li>
+                    <li class="highlight">完全免费</li>
+                    <li class="highlight">数据不出本机</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 架构图 -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">本地架构</span>
+                <span class="badge">100% 本地运行</span>
+            </div>
+            <svg id="arch-svg"></svg>
+        </div>
+
+        <!-- RAG流程 -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">RAG 数据流</span>
+                <div>
+                    <button class="btn" onclick="playRAG()">播放</button>
+                    <span class="status" id="status"></span>
+                </div>
+            </div>
+            <svg id="rag-svg"></svg>
+            <div class="note">
+                <strong>全部本地：</strong>Embedding用BGE，LLM用Qwen，向量库用Chroma，无需联网
+            </div>
+        </div>
+
+        <!-- 技术栈 -->
+        <div class="tech-row">
+            <div class="tech-tag"><strong>前端</strong>HTML/JS</div>
+            <div class="tech-tag"><strong>后端</strong>Flask</div>
+            <div class="tech-tag"><strong>向量库</strong>Chroma（本地）</div>
+            <div class="tech-tag"><strong>Embedding</strong>BGE-M3（本地）</div>
+            <div class="tech-tag"><strong>LLM</strong>Ollama + Qwen2.5（本地）</div>
+        </div>
+    </div>
+
+    <script>
+        // ========== 架构图 ==========
+        const archSvg = d3.select("#arch-svg");
+        const W = archSvg.node().getBoundingClientRect().width;
+        const H = 380;
+        archSvg.attr("viewBox", `0 0 ${W} ${H}`);
+
+        const Y = { user: 50, app: 140, ai: 230, data: 320 };
+
+        const boxes = [
+            { id: "user", x: W/2, y: Y.user, w: 90, h: 40, label: "客服", color: "#0ff" },
+            { id: "frontend", x: W*0.2, y: Y.app, w: 100, h: 40, label: "前端", color: "#0f0" },
+            { id: "backend", x: W*0.5, y: Y.app, w: 100, h: 40, label: "后端", color: "#0f0" },
+            { id: "prompt", x: W*0.8, y: Y.app, w: 100, h: 40, label: "Prompt", color: "#0f0" },
+            { id: "embed", x: W*0.3, y: Y.ai, w: 110, h: 40, label: "BGE-M3", sub: "本地Embedding", color: "#f0f" },
+            { id: "llm", x: W*0.7, y: Y.ai, w: 130, h: 40, label: "Ollama+Qwen", sub: "本地LLM", color: "#f0f" },
+            { id: "vector", x: W*0.3, y: Y.data, w: 120, h: 40, label: "Chroma", sub: "本地向量库", color: "#fa0" },
+            { id: "docs", x: W*0.7, y: Y.data, w: 120, h: 40, label: "知识文档", sub: "产品/价格/FAQ", color: "#fa0" },
+        ];
+
+        const links = [
+            { from: "user", to: "frontend", label: "输入", color: "#0ff" },
+            { from: "frontend", to: "backend", label: "请求", color: "#0f0" },
+            { from: "backend", to: "embed", label: "①查询", color: "#fff" },
+            { from: "embed", to: "vector", label: "②检索", color: "#fff" },
+            { from: "vector", to: "backend", label: "③上下文", color: "#0f0", back: true },
+            { from: "backend", to: "prompt", label: "④组装", color: "#fff" },
+            { from: "prompt", to: "llm", label: "⑤调用", color: "#fff" },
+            { from: "llm", to: "backend", label: "⑥回答", color: "#0f0", back: true },
+            { from: "backend", to: "frontend", label: "⑦返回", color: "#0f0", back: true },
+            { from: "docs", to: "vector", label: "预存", color: "#fa0", dashed: true },
+        ];
+
+        const defs = archSvg.append("defs");
+
+        ["#fff", "#0ff", "#fa0", "#0f0"].forEach(color => {
+            defs.append("marker")
+                .attr("id", `arrow-${color.slice(1)}`)
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 9)
+                .attr("refY", 0)
+                .attr("markerWidth", 8)
+                .attr("markerHeight", 8)
+                .attr("orient", "auto")
+                .append("path")
+                .attr("d", "M0,-5L10,0L0,5Z")
+                .attr("fill", color);
+        });
+
+        const getBox = id => boxes.find(b => b.id === id);
+
+        const getConnectPoint = (box, targetBox) => {
+            const dx = targetBox.x - box.x;
+            const dy = targetBox.y - box.y;
+            if (Math.abs(dy) > Math.abs(dx)) {
+                return dy > 0
+                    ? { x: box.x, y: box.y + box.h/2 }
+                    : { x: box.x, y: box.y - box.h/2 };
+            } else {
+                return dx > 0
+                    ? { x: box.x + box.w/2, y: box.y }
+                    : { x: box.x - box.w/2, y: box.y };
+            }
+        };
+
+        // 本地标记框
+        archSvg.append("rect")
+            .attr("x", W * 0.12)
+            .attr("y", Y.ai - 35)
+            .attr("width", W * 0.76)
+            .attr("height", 160)
+            .attr("rx", 12)
+            .attr("fill", "none")
+            .attr("stroke", "#0f0")
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "8,4")
+            .attr("opacity", 0.3);
+
+        archSvg.append("text")
+            .attr("x", W * 0.88)
+            .attr("y", Y.ai - 20)
+            .attr("fill", "#0f0")
+            .attr("font-size", "11px")
+            .attr("opacity", 0.6)
+            .text("本地运行");
+
+        // 层级标签
+        [
+            { y: Y.user, label: "用户层", color: "#0ff" },
+            { y: Y.app, label: "应用层", color: "#0f0" },
+            { y: Y.ai, label: "AI层", color: "#f0f" },
+            { y: Y.data, label: "数据层", color: "#fa0" },
+        ].forEach(l => {
+            archSvg.append("text")
+                .attr("x", 12)
+                .attr("y", l.y + 4)
+                .attr("fill", l.color)
+                .attr("font-size", "10px")
+                .attr("opacity", 0.5)
+                .text(l.label);
+        });
+
+        // 连接线
+        links.forEach(link => {
+            const from = getBox(link.from);
+            const to = getBox(link.to);
+            const p1 = getConnectPoint(from, to);
+            const p2 = getConnectPoint(to, from);
+            const midX = (p1.x + p2.x) / 2;
+            const midY = (p1.y + p2.y) / 2;
+
+            archSvg.append("line")
+                .attr("x1", p1.x)
+                .attr("y1", p1.y)
+                .attr("x2", p2.x)
+                .attr("y2", p2.y)
+                .attr("stroke", link.color)
+                .attr("stroke-width", link.back ? 3 : 2)
+                .attr("stroke-dasharray", link.dashed ? "6,4" : "none")
+                .attr("opacity", link.back ? 0.8 : 0.6)
+                .attr("marker-end", `url(#arrow-${link.color.slice(1)})`);
+
+            const labelW = link.label.length * 9 + 8;
+            archSvg.append("rect")
+                .attr("x", midX - labelW/2)
+                .attr("y", midY - 9)
+                .attr("width", labelW)
+                .attr("height", 18)
+                .attr("fill", "#000")
+                .attr("rx", 3);
+
+            archSvg.append("text")
+                .attr("x", midX)
+                .attr("y", midY + 4)
+                .attr("text-anchor", "middle")
+                .attr("fill", link.back ? "#0f0" : "#888")
+                .attr("font-size", "11px")
+                .text(link.label);
+        });
+
+        // 组件盒子
+        boxes.forEach(box => {
+            const g = archSvg.append("g");
+
+            g.append("rect")
+                .attr("x", box.x - box.w/2)
+                .attr("y", box.y - box.h/2)
+                .attr("width", box.w)
+                .attr("height", box.h)
+                .attr("rx", 6)
+                .attr("fill", "#0a0a0a")
+                .attr("stroke", box.color)
+                .attr("stroke-width", 2);
+
+            g.append("text")
+                .attr("x", box.x)
+                .attr("y", box.sub ? box.y : box.y + 5)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#fff")
+                .attr("font-size", "12px")
+                .attr("font-weight", "500")
+                .text(box.label);
+
+            if (box.sub) {
+                g.append("text")
+                    .attr("x", box.x)
+                    .attr("y", box.y + 14)
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "#666")
+                    .attr("font-size", "9px")
+                    .text(box.sub);
+            }
+        });
+
+        // ========== RAG流程图 ==========
+        const ragSvg = d3.select("#rag-svg");
+        const ragW = ragSvg.node().getBoundingClientRect().width;
+        const ragH = 220;
+        ragSvg.attr("viewBox", `0 0 ${ragW} ${ragH}`);
+
+        const ragDefs = ragSvg.append("defs");
+        const glow = ragDefs.append("filter").attr("id", "glow");
+        glow.append("feGaussianBlur").attr("stdDeviation", "3");
+
+        const ragNodes = [
+            { x: 0.08, label: "问题", color: "#0ff" },
+            { x: 0.26, label: "BGE", sub: "向量化", color: "#f0f" },
+            { x: 0.44, label: "Chroma", sub: "检索", color: "#fa0" },
+            { x: 0.62, label: "上下文", color: "#fa0" },
+            { x: 0.80, label: "Qwen", sub: "生成", color: "#f0f" },
+            { x: 0.95, label: "回答", color: "#0f0" },
+        ];
+
+        const ragY = 80;
+        const nodeR = 28;
+
+        // 向量库
+        ragSvg.append("rect")
+            .attr("x", ragW * 0.26)
+            .attr("y", 160)
+            .attr("width", ragW * 0.36)
+            .attr("height", 32)
+            .attr("rx", 4)
+            .attr("fill", "#0a0a0a")
+            .attr("stroke", "#fa0")
+            .attr("stroke-width", 2);
+
+        ragSvg.append("text")
+            .attr("x", ragW * 0.44)
+            .attr("y", 180)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#fa0")
+            .attr("font-size", "12px")
+            .text("Chroma 向量数据库");
+
+        ragSvg.append("line")
+            .attr("class", "db-line-1")
+            .attr("x1", ragW * 0.26)
+            .attr("y1", ragY + nodeR + 4)
+            .attr("x2", ragW * 0.32)
+            .attr("y2", 158)
+            .attr("stroke", "#333")
+            .attr("stroke-width", 2);
+
+        ragSvg.append("line")
+            .attr("class", "db-line-2")
+            .attr("x1", ragW * 0.56)
+            .attr("y1", 158)
+            .attr("x2", ragW * 0.62)
+            .attr("y2", ragY + nodeR + 4)
+            .attr("stroke", "#333")
+            .attr("stroke-width", 2);
+
+        ragNodes.slice(0, -1).forEach((node, i) => {
+            const next = ragNodes[i + 1];
+            ragSvg.append("line")
+                .attr("x1", node.x * ragW + nodeR + 6)
+                .attr("y1", ragY)
+                .attr("x2", next.x * ragW - nodeR - 6)
+                .attr("y2", ragY)
+                .attr("stroke", "#1a1a1a")
+                .attr("stroke-width", 4);
+
+            ragSvg.append("line")
+                .attr("class", `rag-line-${i}`)
+                .attr("x1", node.x * ragW + nodeR + 6)
+                .attr("y1", ragY)
+                .attr("x2", node.x * ragW + nodeR + 6)
+                .attr("y2", ragY)
+                .attr("stroke", node.color)
+                .attr("stroke-width", 4);
+        });
+
+        ragNodes.forEach((node, i) => {
+            const x = node.x * ragW;
+            const g = ragSvg.append("g")
+                .attr("class", `rag-node-${i}`)
+                .attr("transform", `translate(${x}, ${ragY})`)
+                .style("opacity", 0.3);
+
+            g.append("circle")
+                .attr("r", nodeR)
+                .attr("fill", "#050505")
+                .attr("stroke", node.color)
+                .attr("stroke-width", 3);
+
+            g.append("text")
+                .attr("y", node.sub ? -2 : 5)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#fff")
+                .attr("font-size", "11px")
+                .text(node.label);
+
+            if (node.sub) {
+                g.append("text")
+                    .attr("y", 12)
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "#666")
+                    .attr("font-size", "9px")
+                    .text(node.sub);
+            }
+        });
+
+        const packet = ragSvg.append("circle")
+            .attr("r", 6)
+            .attr("fill", "#fff")
+            .attr("filter", "url(#glow)")
+            .attr("cx", ragNodes[0].x * ragW)
+            .attr("cy", ragY)
+            .style("opacity", 0);
+
+        const statusText = [
+            "输入问题",
+            "BGE本地向量化",
+            "Chroma相似检索",
+            "获取上下文",
+            "Qwen本地生成",
+            "返回结果"
+        ];
+
+        let playing = false;
+
+        function playRAG() {
+            if (playing) return;
+            playing = true;
+
+            ragNodes.forEach((_, i) => {
+                d3.select(`.rag-node-${i}`).style("opacity", 0.3);
+                if (i < ragNodes.length - 1) {
+                    d3.select(`.rag-line-${i}`).attr("x2", ragNodes[i].x * ragW + nodeR + 6);
+                }
+            });
+            d3.select(".db-line-1").attr("stroke", "#333");
+            d3.select(".db-line-2").attr("stroke", "#333");
+
+            packet.style("opacity", 1).attr("cx", ragNodes[0].x * ragW);
+
+            ragNodes.forEach((node, i) => {
+                setTimeout(() => {
+                    d3.select("#status").text(statusText[i]);
+                    d3.select(`.rag-node-${i}`).transition().duration(200).style("opacity", 1);
+
+                    if (i === 1) d3.select(".db-line-1").transition().attr("stroke", "#fa0");
+                    if (i === 3) d3.select(".db-line-2").transition().attr("stroke", "#fa0");
+
+                    if (i < ragNodes.length - 1) {
+                        d3.select(`.rag-line-${i}`)
+                            .transition().duration(400)
+                            .attr("x2", ragNodes[i + 1].x * ragW - nodeR - 6);
+
+                        packet.transition().duration(400)
+                            .attr("cx", ragNodes[i + 1].x * ragW);
+                    }
+                }, i * 600);
+            });
+
+            setTimeout(() => {
+                packet.transition().style("opacity", 0);
+                d3.select("#status").text("✓ 完成");
+                playing = false;
+            }, ragNodes.length * 600);
+        }
+
+        d3.select(".rag-node-0").style("opacity", 1);
+    </script>
+</body>
+</html>

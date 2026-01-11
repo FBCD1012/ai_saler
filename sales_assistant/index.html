@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 销售助手</title>
+    <!-- Markdown 渲染 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0a0a0a;
+            --card: #111;
+            --border: #222;
+            --text: #e5e5e5;
+            --text-muted: #888;
+            --accent: #f59e0b;
+            --accent-hover: #fbbf24;
+            --user-bg: #1d4ed8;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            color: var(--text);
+        }
+
+        .app {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* 左侧主聊天区 */
+        .chat-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+        }
+
+        .chat-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chat-header h1 {
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .chat-header h1 span {
+            color: var(--accent);
+        }
+
+        .status-badge {
+            font-size: 11px;
+            padding: 4px 10px;
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+            border-radius: 100px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 3px;
+        }
+
+        .welcome {
+            text-align: center;
+            padding: 60px 40px;
+        }
+
+        .welcome h2 {
+            font-size: 24px;
+            font-weight: 400;
+            margin-bottom: 12px;
+        }
+
+        .welcome p {
+            color: var(--text-muted);
+            margin-bottom: 32px;
+        }
+
+        .quick-prompts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .quick-btn {
+            background: var(--card);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 10px 16px;
+            border-radius: 100px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* 消息样式 */
+        .message {
+            margin-bottom: 24px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .message.user .avatar {
+            background: var(--user-bg);
+        }
+
+        .message.assistant .avatar {
+            background: var(--accent);
+            color: #000;
+        }
+
+        .message-role {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .message.user .message-body {
+            background: var(--user-bg);
+            padding: 12px 16px;
+            border-radius: 12px;
+            display: inline-block;
+            max-width: 80%;
+        }
+
+        .message.assistant .message-body {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 100%;
+        }
+
+        /* Markdown 渲染样式 */
+        .message.assistant .message-body h1,
+        .message.assistant .message-body h2,
+        .message.assistant .message-body h3 {
+            color: var(--accent);
+            margin: 16px 0 8px 0;
+            font-weight: 500;
+        }
+
+        .message.assistant .message-body h1:first-child,
+        .message.assistant .message-body h2:first-child,
+        .message.assistant .message-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .message.assistant .message-body h1 { font-size: 18px; }
+        .message.assistant .message-body h2 { font-size: 16px; }
+        .message.assistant .message-body h3 { font-size: 14px; }
+
+        .message.assistant .message-body p {
+            margin: 8px 0;
+            line-height: 1.7;
+        }
+
+        .message.assistant .message-body ul,
+        .message.assistant .message-body ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+
+        .message.assistant .message-body li {
+            margin: 6px 0;
+            line-height: 1.6;
+        }
+
+        .message.assistant .message-body strong {
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        .message.assistant .message-body code {
+            background: #1a1a1a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .message.assistant .message-body blockquote {
+            border-left: 3px solid var(--accent);
+            padding-left: 16px;
+            margin: 12px 0;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .message.assistant .message-body hr {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 16px 0;
+        }
+
+        /* 话术卡片样式 */
+        .script-card {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+        }
+
+        .script-card-title {
+            font-size: 12px;
+            color: var(--accent);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .script-content {
+            background: #161b22;
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 14px;
+            line-height: 1.6;
+            position: relative;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: var(--accent);
+            color: #000;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .script-content:hover .copy-btn {
+            opacity: 1;
+        }
+
+        /* 加载动画 */
+        .loading-dots {
+            display: flex;
+            gap: 4px;
+            padding: 16px;
+        }
+
+        .loading-dots span {
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        /* 输入区 */
+        .chat-input {
+            padding: 16px 24px 24px;
+            border-top: 1px solid var(--border);
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 4px;
+            transition: border-color 0.2s;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: var(--accent);
+        }
+
+        .chat-input textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text);
+            padding: 12px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: none;
+            outline: none;
+        }
+
+        .chat-input textarea::placeholder {
+            color: #555;
+        }
+
+        .send-btn {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            background: var(--accent-hover);
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 右侧案例面板 */
+        .cases-panel {
+            width: 380px;
+            display: flex;
+            flex-direction: column;
+            background: #080808;
+            border-left: 1px solid var(--border);
+        }
+
+        .cases-header {
+            padding: 20px 20px 16px;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(180deg, #111 0%, #0a0a0a 100%);
+        }
+
+        .cases-header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .cases-header h2 {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+            letter-spacing: 0.5px;
+        }
+
+        .cases-count {
+            font-size: 12px;
+            color: var(--accent);
+            background: rgba(245, 158, 11, 0.12);
+            padding: 3px 10px;
+            border-radius: 100px;
+        }
+
+        .cases-subtitle {
+            font-size: 12px;
+            color: #555;
+        }
+
+        .cases-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .cases-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .cases-list::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 2px;
+        }
+
+        .case-empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: #444;
+            font-size: 13px;
+        }
+
+        .case-loading {
+            color: var(--accent);
+            animation: pulse-text 1.5s infinite;
+        }
+
+        @keyframes pulse-text {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        .case-item {
+            background: linear-gradient(145deg, #111 0%, #0d0d0d 100%);
+            border: 1px solid #1a1a1a;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 14px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+        }
+
+        .case-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent) 0%, transparent 100%);
+            border-radius: 12px 12px 0 0;
+            opacity: 0;
+            transition: opacity 0.25s;
+        }
+
+        .case-item:hover {
+            border-color: #2a2a2a;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+
+        .case-item:hover::before {
+            opacity: 1;
+        }
+
+        .case-number {
+            position: absolute;
+            top: 12px;
+            right: 14px;
+            font-size: 11px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .case-tags {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .case-tag {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+
+        .case-tag.product {
+            background: rgba(245, 158, 11, 0.12);
+            color: var(--accent);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .case-tag.buyer {
+            background: rgba(59, 130, 246, 0.12);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .case-tag.seller {
+            background: rgba(34, 197, 94, 0.12);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .case-label {
+            font-size: 11px;
+            color: #444;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 500;
+        }
+
+        .case-content {
+            font-size: 13px;
+            color: #aaa;
+            line-height: 1.7;
+            padding: 12px;
+            background: #0a0a0a;
+            border-radius: 8px;
+            border: 1px solid #1a1a1a;
+        }
+
+        .case-analysis {
+            font-size: 12px;
+            color: var(--accent);
+            margin-top: 12px;
+            padding: 10px 12px;
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.03) 100%);
+            border-radius: 8px;
+            border-left: 3px solid var(--accent);
+            font-weight: 500;
+        }
+
+        .case-analysis::before {
+            content: 'INSIGHT';
+            display: block;
+            font-size: 9px;
+            color: #666;
+            letter-spacing: 1.5px;
+            margin-bottom: 4px;
+        }
+
+        .case-copy-hint {
+            font-size: 10px;
+            color: #333;
+            text-align: right;
+            margin-top: 10px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .case-item:hover .case-copy-hint {
+            opacity: 1;
+        }
+
+        /* 响应式 */
+        @media (max-width: 900px) {
+            .app {
+                flex-direction: column;
+            }
+            .chat-panel {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+            .cases-panel {
+                width: 100%;
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- 主聊天区 -->
+        <div class="chat-panel">
+            <div class="chat-header">
+                <h1>AI <span>销售助手</span></h1>
+                <span class="status-badge">● 在线</span>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome" id="welcome">
+                    <h2>有什么可以帮你的？</h2>
+                    <p>输入客户的问题或场景，获取专业回复建议</p>
+                    <div class="quick-prompts">
+                        <button class="quick-btn" onclick="quickAsk(this)">客户说太贵了</button>
+                        <button class="quick-btn" onclick="quickAsk(this)">客户要求打折</button>
+                        <button class="quick-btn" onclick="quickAsk(this)">客户比价其他家</button>
+                        <button class="quick-btn" onclick="quickAsk(this)">客户要求退款</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input">
+                <div class="input-wrapper">
+                    <textarea
+                        id="input"
+                        rows="1"
+                        placeholder="描述客户的问题或场景..."
+                        onkeydown="handleKeydown(event)"
+                    ></textarea>
+                    <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+                        发送 ↵
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 案例面板 -->
+        <div class="cases-panel">
+            <div class="cases-header">
+                <div class="cases-header-top">
+                    <h2>参考案例</h2>
+                    <span class="cases-count" id="casesCount"></span>
+                </div>
+                <div class="cases-subtitle">从知识库检索的相似对话</div>
+            </div>
+            <div class="cases-list" id="casesList">
+                <div class="case-empty">发送消息后展示相关案例</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chatMessages');
+        const casesList = document.getElementById('casesList');
+        const input = document.getElementById('input');
+        const sendBtn = document.getElementById('sendBtn');
+        const welcome = document.getElementById('welcome');
+        const casesCount = document.getElementById('casesCount');
+
+        // 自动调整输入框高度
+        input.addEventListener('input', () => {
+            input.style.height = 'auto';
+            input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+        });
+
+        function handleKeydown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function quickAsk(btn) {
+            input.value = btn.textContent;
+            sendMessage();
+        }
+
+        async function sendMessage() {
+            const message = input.value.trim();
+            if (!message) return;
+
+            // 隐藏欢迎
+            if (welcome) welcome.style.display = 'none';
+
+            // 显示用户消息
+            addUserMessage(message);
+            input.value = '';
+            input.style.height = 'auto';
+            sendBtn.disabled = true;
+
+            // 清空并显示案例加载状态
+            casesList.innerHTML = '<div class="case-empty case-loading">正在检索相关案例...</div>';
+            casesCount.textContent = '';
+
+            // 加载状态
+            const loadingId = addLoading();
+
+            try {
+                const res = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                const data = await res.json();
+
+                removeLoading(loadingId);
+
+                if (data.error) {
+                    addAssistantMessage('错误: ' + data.error);
+                } else {
+                    addAssistantMessage(data.reply);
+                    displayCases(data.similar_cases);
+                }
+            } catch (err) {
+                removeLoading(loadingId);
+                addAssistantMessage('网络错误，请检查服务是否启动');
+                casesList.innerHTML = '<div class="case-empty">检索失败</div>';
+            }
+
+            sendBtn.disabled = false;
+            input.focus();
+        }
+
+        function addUserMessage(text) {
+            const div = document.createElement('div');
+            div.className = 'message user';
+            div.innerHTML = `
+                <div class="message-header">
+                    <div class="avatar">U</div>
+                    <span class="message-role">你</span>
+                </div>
+                <div class="message-body">${escapeHtml(text)}</div>
+            `;
+            chatMessages.appendChild(div);
+            scrollToBottom();
+        }
+
+        function addAssistantMessage(text) {
+            const div = document.createElement('div');
+            div.className = 'message assistant';
+
+            // 使用 marked 渲染 Markdown
+            const rendered = marked.parse(text);
+
+            div.innerHTML = `
+                <div class="message-header">
+                    <div class="avatar">AI</div>
+                    <span class="message-role">AI 助手</span>
+                </div>
+                <div class="message-body">${rendered}</div>
+            `;
+            chatMessages.appendChild(div);
+            scrollToBottom();
+
+            // 添加复制功能
+            addCopyButtons(div);
+        }
+
+        function addLoading() {
+            const id = 'loading-' + Date.now();
+            const div = document.createElement('div');
+            div.id = id;
+            div.className = 'message assistant';
+            div.innerHTML = `
+                <div class="message-header">
+                    <div class="avatar">AI</div>
+                    <span class="message-role">AI 助手</span>
+                </div>
+                <div class="message-body">
+                    <div class="loading-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            `;
+            chatMessages.appendChild(div);
+            scrollToBottom();
+            return id;
+        }
+
+        function removeLoading(id) {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        }
+
+        function displayCases(cases) {
+            if (!cases || cases.length === 0) {
+                casesList.innerHTML = '<div class="case-empty">未找到相似案例</div>';
+                casesCount.textContent = '';
+                return;
+            }
+
+            casesCount.textContent = `${cases.length} 条`;
+            casesList.innerHTML = cases.map((c, idx) => `
+                <div class="case-item" onclick="copyCase(this)">
+                    <span class="case-number">#${idx + 1}</span>
+                    <div class="case-tags">
+                        <span class="case-tag product">${escapeHtml(c.product)}</span>
+                        <span class="case-tag ${c.role}">${c.role === 'buyer' ? '买家' : '卖家'}</span>
+                    </div>
+                    <div class="case-label">对话内容</div>
+                    <div class="case-content">${escapeHtml(c.content)}</div>
+                    ${c.analysis ? `<div class="case-analysis">${escapeHtml(c.analysis)}</div>` : ''}
+                    <div class="case-copy-hint">点击复制内容</div>
+                </div>
+            `).join('');
+        }
+
+        function copyCase(el) {
+            const content = el.querySelector('.case-content').textContent;
+            navigator.clipboard.writeText(content);
+
+            // 显示复制成功反馈
+            const hint = el.querySelector('.case-copy-hint');
+            const originalText = hint.textContent;
+            hint.textContent = '已复制';
+            hint.style.color = 'var(--accent)';
+            hint.style.opacity = '1';
+            el.style.borderColor = 'var(--accent)';
+
+            setTimeout(() => {
+                hint.textContent = originalText;
+                hint.style.color = '';
+                hint.style.opacity = '';
+                el.style.borderColor = '';
+            }, 1500);
+        }
+
+        function addCopyButtons(container) {
+            // 为代码块添加复制按钮
+            container.querySelectorAll('code').forEach(code => {
+                if (code.parentElement.tagName === 'PRE') {
+                    const btn = document.createElement('button');
+                    btn.className = 'copy-btn';
+                    btn.textContent = '复制';
+                    btn.onclick = () => {
+                        navigator.clipboard.writeText(code.textContent);
+                        btn.textContent = '已复制';
+                        setTimeout(() => btn.textContent = '复制', 1500);
+                    };
+                    code.parentElement.style.position = 'relative';
+                    code.parentElement.appendChild(btn);
+                }
+            });
+        }
+
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 聚焦输入框
+        input.focus();
+    </script>
+</body>
+</html>

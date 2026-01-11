@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoRA微调原理</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #000;
+            min-height: 100vh;
+            color: #fff;
+        }
+        .page { max-width: 1000px; margin: 0 auto; padding: 48px 24px; }
+        h1 { font-size: 1.6em; font-weight: 400; margin-bottom: 8px; }
+        h1 span { color: #f0f; }
+        .subtitle { color: #555; margin-bottom: 32px; font-size: 0.85em; }
+        .card {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .card-title {
+            font-size: 0.7em;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #444;
+            margin-bottom: 16px;
+        }
+        svg { display: block; width: 100%; }
+        #lora-svg { height: 300px; }
+        #flow-svg { height: 200px; }
+        .compare {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .compare-box {
+            background: #111;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .compare-box h3 {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .compare-box h3 .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .compare-box.bad h3 { color: #f55; }
+        .compare-box.good h3 { color: #0f0; }
+        .compare-box ul {
+            list-style: none;
+            font-size: 0.85em;
+            color: #888;
+        }
+        .compare-box li { padding: 4px 0; }
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .step {
+            background: #111;
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+        .step-num {
+            width: 28px;
+            height: 28px;
+            background: #f0f;
+            color: #000;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.85em;
+            margin: 0 auto 10px;
+        }
+        .step-title {
+            font-size: 0.85em;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+        .step-desc {
+            font-size: 0.75em;
+            color: #666;
+        }
+        .code-block {
+            background: #111;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.8em;
+            color: #0f0;
+            overflow-x: auto;
+        }
+        .code-block .comment { color: #666; }
+        .code-block .cmd { color: #0ff; }
+        .note {
+            background: rgba(255,0,255,0.08);
+            border-left: 2px solid #f0f;
+            padding: 14px 18px;
+            margin-top: 16px;
+            font-size: 0.85em;
+            color: #888;
+        }
+        .note strong { color: #f0f; }
+        .data-example {
+            background: #111;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+            font-size: 0.85em;
+        }
+        .data-example pre {
+            color: #888;
+            white-space: pre-wrap;
+        }
+        .data-example .key { color: #0ff; }
+        .data-example .value { color: #0f0; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <h1>LoRA <span>微调原理</span></h1>
+        <p class="subtitle">Low-Rank Adaptation · 低秩适配 · 用小参数撬动大模型</p>
+
+        <!-- 对比 -->
+        <div class="compare">
+            <div class="compare-box bad">
+                <h3><span class="dot" style="background:#f55"></span>全量微调（不推荐）</h3>
+                <ul>
+                    <li>❌ 训练全部70亿参数</li>
+                    <li>❌ 需要80GB+ 显存</li>
+                    <li>❌ 训练几天到几周</li>
+                    <li>❌ 容易过拟合</li>
+                </ul>
+            </div>
+            <div class="compare-box good">
+                <h3><span class="dot" style="background:#0f0"></span>LoRA微调（推荐）</h3>
+                <ul>
+                    <li>✓ 只训练0.1%参数（约700万）</li>
+                    <li>✓ 8GB显存就够</li>
+                    <li>✓ 几小时完成</li>
+                    <li>✓ 你的Mac能跑</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- LoRA原理图 -->
+        <div class="card">
+            <div class="card-title">LoRA 核心原理</div>
+            <svg id="lora-svg"></svg>
+            <div class="note">
+                <strong>核心思想：</strong>冻结原模型（蓝色），只训练两个小矩阵A和B（绿色）。
+                最终效果 = 原模型 + A×B
+            </div>
+        </div>
+
+        <!-- 流程图 -->
+        <div class="card">
+            <div class="card-title">微调流程</div>
+            <svg id="flow-svg"></svg>
+        </div>
+
+        <!-- 步骤 -->
+        <div class="card">
+            <div class="card-title">在你的Mac上操作步骤</div>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num">1</div>
+                    <div class="step-title">准备数据</div>
+                    <div class="step-desc">整理问答对</div>
+                </div>
+                <div class="step">
+                    <div class="step-num">2</div>
+                    <div class="step-title">安装MLX</div>
+                    <div class="step-desc">Apple官方框架</div>
+                </div>
+                <div class="step">
+                    <div class="step-num">3</div>
+                    <div class="step-title">下载基座</div>
+                    <div class="step-desc">Qwen2.5-7B</div>
+                </div>
+                <div class="step">
+                    <div class="step-num">4</div>
+                    <div class="step-title">开始训练</div>
+                    <div class="step-desc">一行命令</div>
+                </div>
+            </div>
+
+            <!-- 数据格式 -->
+            <div class="data-example">
+                <strong style="color:#fff">训练数据格式（JSONL）：</strong>
+                <pre>
+{<span class="key">"instruction"</span>: <span class="value">"客户问为什么涨价了"</span>, <span class="key">"output"</span>: <span class="value">"您好，近期原材料成本上涨15%..."</span>}
+{<span class="key">"instruction"</span>: <span class="value">"客户说太贵了"</span>, <span class="key">"output"</span>: <span class="value">"理解您的顾虑，我们的产品..."</span>}
+{<span class="key">"instruction"</span>: <span class="value">"客户要求退货"</span>, <span class="key">"output"</span>: <span class="value">"好的，7天无理由退货..."</span>}</pre>
+            </div>
+
+            <!-- 命令 -->
+            <div class="code-block">
+<span class="comment"># 1. 安装MLX-LM</span>
+<span class="cmd">pip install mlx-lm</span>
+
+<span class="comment"># 2. 下载基座模型</span>
+<span class="cmd">huggingface-cli download Qwen/Qwen2.5-7B-Instruct --local-dir ./qwen</span>
+
+<span class="comment"># 3. 开始LoRA微调</span>
+<span class="cmd">mlx_lm.lora --model ./qwen --data ./train_data.jsonl --iters 100</span>
+
+<span class="comment"># 4. 合并权重</span>
+<span class="cmd">mlx_lm.fuse --model ./qwen --adapter-path ./adapters</span>
+            </div>
+        </div>
+
+        <!-- 需要多少数据 -->
+        <div class="card">
+            <div class="card-title">需要准备多少数据？</div>
+            <div class="compare">
+                <div class="compare-box">
+                    <h3>最少</h3>
+                    <ul>
+                        <li>50-100条高质量问答</li>
+                        <li>能跑起来，效果一般</li>
+                    </ul>
+                </div>
+                <div class="compare-box good">
+                    <h3>推荐</h3>
+                    <ul>
+                        <li>500-1000条问答</li>
+                        <li>效果明显，风格统一</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="note">
+                <strong>提示：</strong>数据质量比数量重要。100条精心准备的数据 > 1000条随便写的数据。
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== LoRA原理图 ==========
+        const loraSvg = d3.select("#lora-svg");
+        const W = loraSvg.node().getBoundingClientRect().width;
+        const H = 300;
+        loraSvg.attr("viewBox", `0 0 ${W} ${H}`);
+
+        const centerY = H / 2;
+
+        // 原始权重矩阵 W (冻结)
+        loraSvg.append("rect")
+            .attr("x", W * 0.1)
+            .attr("y", centerY - 80)
+            .attr("width", 120)
+            .attr("height", 160)
+            .attr("rx", 8)
+            .attr("fill", "#1a3a5c")
+            .attr("stroke", "#0af")
+            .attr("stroke-width", 2);
+
+        loraSvg.append("text")
+            .attr("x", W * 0.1 + 60)
+            .attr("y", centerY)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#0af")
+            .attr("font-size", "18px")
+            .attr("font-weight", "600")
+            .text("W");
+
+        loraSvg.append("text")
+            .attr("x", W * 0.1 + 60)
+            .attr("y", centerY + 25)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#666")
+            .attr("font-size", "11px")
+            .text("原模型权重");
+
+        loraSvg.append("text")
+            .attr("x", W * 0.1 + 60)
+            .attr("y", centerY + 40)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#f55")
+            .attr("font-size", "10px")
+            .text("🔒 冻结");
+
+        // 加号
+        loraSvg.append("text")
+            .attr("x", W * 0.32)
+            .attr("y", centerY + 8)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#fff")
+            .attr("font-size", "28px")
+            .text("+");
+
+        // LoRA矩阵 A (小)
+        loraSvg.append("rect")
+            .attr("x", W * 0.4)
+            .attr("y", centerY - 80)
+            .attr("width", 30)
+            .attr("height", 160)
+            .attr("rx", 4)
+            .attr("fill", "#1a4a2c")
+            .attr("stroke", "#0f0")
+            .attr("stroke-width", 2);
+
+        loraSvg.append("text")
+            .attr("x", W * 0.4 + 15)
+            .attr("y", centerY)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#0f0")
+            .attr("font-size", "14px")
+            .attr("font-weight", "600")
+            .text("A");
+
+        // 乘号
+        loraSvg.append("text")
+            .attr("x", W * 0.47)
+            .attr("y", centerY + 8)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#fff")
+            .attr("font-size", "20px")
+            .text("×");
+
+        // LoRA矩阵 B (小)
+        loraSvg.append("rect")
+            .attr("x", W * 0.52)
+            .attr("y", centerY - 15)
+            .attr("width", 120)
+            .attr("height", 30)
+            .attr("rx", 4)
+            .attr("fill", "#1a4a2c")
+            .attr("stroke", "#0f0")
+            .attr("stroke-width", 2);
+
+        loraSvg.append("text")
+            .attr("x", W * 0.52 + 60)
+            .attr("y", centerY + 5)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#0f0")
+            .attr("font-size", "14px")
+            .attr("font-weight", "600")
+            .text("B");
+
+        // LoRA标签
+        loraSvg.append("text")
+            .attr("x", W * 0.52)
+            .attr("y", centerY + 55)
+            .attr("fill", "#0f0")
+            .attr("font-size", "11px")
+            .text("LoRA适配器");
+
+        loraSvg.append("text")
+            .attr("x", W * 0.52)
+            .attr("y", centerY + 70)
+            .attr("fill", "#666")
+            .attr("font-size", "10px")
+            .text("✓ 可训练，参数很少");
+
+        // 等号
+        loraSvg.append("text")
+            .attr("x", W * 0.72)
+            .attr("y", centerY + 8)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#fff")
+            .attr("font-size", "28px")
+            .text("=");
+
+        // 最终结果
+        loraSvg.append("rect")
+            .attr("x", W * 0.78)
+            .attr("y", centerY - 80)
+            .attr("width", 120)
+            .attr("height", 160)
+            .attr("rx", 8)
+            .attr("fill", "#3a2a4c")
+            .attr("stroke", "#f0f")
+            .attr("stroke-width", 2);
+
+        loraSvg.append("text")
+            .attr("x", W * 0.78 + 60)
+            .attr("y", centerY)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#f0f")
+            .attr("font-size", "18px")
+            .attr("font-weight", "600")
+            .text("W'");
+
+        loraSvg.append("text")
+            .attr("x", W * 0.78 + 60)
+            .attr("y", centerY + 25)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#666")
+            .attr("font-size", "11px")
+            .text("你的专属模型");
+
+        // ========== 流程图 ==========
+        const flowSvg = d3.select("#flow-svg");
+        const flowW = flowSvg.node().getBoundingClientRect().width;
+        const flowH = 200;
+        flowSvg.attr("viewBox", `0 0 ${flowW} ${flowH}`);
+
+        const flowNodes = [
+            { x: 0.1, label: "你的数据", sub: "问答对", color: "#fa0" },
+            { x: 0.3, label: "基座模型", sub: "Qwen2.5", color: "#0af" },
+            { x: 0.5, label: "LoRA训练", sub: "几小时", color: "#0f0" },
+            { x: 0.7, label: "合并权重", sub: "fuse", color: "#f0f" },
+            { x: 0.9, label: "专属模型", sub: "可部署", color: "#f0f" },
+        ];
+
+        const flowY = flowH / 2;
+
+        // 连线
+        flowNodes.slice(0, -1).forEach((node, i) => {
+            const next = flowNodes[i + 1];
+            flowSvg.append("line")
+                .attr("x1", node.x * flowW + 50)
+                .attr("y1", flowY)
+                .attr("x2", next.x * flowW - 50)
+                .attr("y2", flowY)
+                .attr("stroke", "#333")
+                .attr("stroke-width", 3);
+
+            flowSvg.append("polygon")
+                .attr("points", "-8,-6 0,0 -8,6")
+                .attr("fill", "#555")
+                .attr("transform", `translate(${next.x * flowW - 45}, ${flowY})`);
+        });
+
+        // 节点
+        flowNodes.forEach(node => {
+            const x = node.x * flowW;
+            const g = flowSvg.append("g").attr("transform", `translate(${x}, ${flowY})`);
+
+            g.append("circle")
+                .attr("r", 35)
+                .attr("fill", "#0a0a0a")
+                .attr("stroke", node.color)
+                .attr("stroke-width", 2);
+
+            g.append("text")
+                .attr("y", -5)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#fff")
+                .attr("font-size", "11px")
+                .text(node.label);
+
+            g.append("text")
+                .attr("y", 12)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#666")
+                .attr("font-size", "9px")
+                .text(node.sub);
+        });
+    </script>
+</body>
+</html>

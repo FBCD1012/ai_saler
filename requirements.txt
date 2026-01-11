@@ -1,0 +1,21 @@
+# LoRA 微调依赖 - Mac M2 版本
+# Python 3.10+
+
+# PyTorch (Mac MPS 支持)
+torch>=2.1.0
+torchvision>=0.16.0
+torchaudio>=2.1.0
+
+# Transformers 生态
+transformers>=4.36.0
+peft>=0.7.0
+datasets>=2.15.0
+accelerate>=0.25.0
+
+# 训练工具
+tqdm>=4.66.0
+sentencepiece>=0.1.99
+protobuf>=4.25.0
+
+# 可选: 监控
+# wandb>=0.16.0

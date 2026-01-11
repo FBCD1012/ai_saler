@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>向量数据库原理</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #000;
+            min-height: 100vh;
+            color: #fff;
+        }
+        .page { max-width: 900px; margin: 0 auto; padding: 48px 24px; }
+        h1 { font-size: 1.6em; font-weight: 400; margin-bottom: 8px; }
+        h1 span { color: #fa0; }
+        .subtitle { color: #555; margin-bottom: 32px; font-size: 0.85em; }
+        .card {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .card-title {
+            font-size: 0.7em;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #444;
+            margin-bottom: 16px;
+        }
+        svg { display: block; width: 100%; }
+        #vector-svg { height: 360px; }
+        .btn {
+            background: #fa0;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 100px;
+            font-size: 0.8em;
+            font-weight: 600;
+            cursor: pointer;
+            margin-right: 8px;
+        }
+        .btn:hover { box-shadow: 0 0 24px rgba(255,170,0,0.4); }
+        .btn.active { background: #fff; }
+        .status { font-size: 0.85em; color: #888; margin-top: 16px; }
+        .compare {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .compare-box {
+            background: #111;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .compare-box h3 {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 12px;
+        }
+        .compare-box.highlight h3 { color: #fa0; }
+        .compare-box p {
+            font-size: 0.9em;
+            color: #aaa;
+            line-height: 1.6;
+        }
+        .compare-box code {
+            background: #1a1a1a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+        .note {
+            background: rgba(255,170,0,0.08);
+            border-left: 2px solid #fa0;
+            padding: 14px 18px;
+            margin-top: 16px;
+            font-size: 0.85em;
+            color: #888;
+        }
+        .note strong { color: #fa0; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <h1>向量数据库 <span>原理</span></h1>
+        <p class="subtitle">把"语义相似"变成"空间距离近"</p>
+
+        <!-- 对比 -->
+        <div class="compare">
+            <div class="compare-box">
+                <h3>传统搜索（关键词匹配）</h3>
+                <p>
+                    搜索 <code>涨价</code><br><br>
+                    ✗ 找不到 "价格上调"<br>
+                    ✗ 找不到 "成本增加"<br>
+                    ✓ 只能找到包含"涨价"的文档
+                </p>
+            </div>
+            <div class="compare-box highlight">
+                <h3>向量搜索（语义理解）</h3>
+                <p>
+                    搜索 <code>涨价</code><br><br>
+                    ✓ 能找到 "价格上调"<br>
+                    ✓ 能找到 "成本增加"<br>
+                    ✓ 理解含义，不只是匹配文字
+                </p>
+            </div>
+        </div>
+
+        <!-- 向量空间可视化 -->
+        <div class="card">
+            <div class="card-title">向量空间（2D简化演示）</div>
+            <svg id="vector-svg"></svg>
+            <div>
+                <button class="btn" onclick="searchQuery('涨价')">搜索"涨价"</button>
+                <button class="btn" onclick="searchQuery('发货')">搜索"发货"</button>
+                <button class="btn" onclick="searchQuery('退款')">搜索"退款"</button>
+                <button class="btn" onclick="resetSearch()">重置</button>
+            </div>
+            <div class="status" id="status"></div>
+            <div class="note">
+                <strong>原理：</strong>每个文档变成空间中的一个点，搜索时找距离最近的点。
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const svg = d3.select("#vector-svg");
+        const W = svg.node().getBoundingClientRect().width;
+        const H = 360;
+        svg.attr("viewBox", `0 0 ${W} ${H}`);
+
+        // 模拟的文档数据（2D坐标 + 内容）
+        const docs = [
+            // 价格相关（聚集在一起）
+            { x: 0.2, y: 0.3, text: "原材料涨价通知", cat: "price" },
+            { x: 0.25, y: 0.25, text: "成本上调说明", cat: "price" },
+            { x: 0.18, y: 0.35, text: "供应商调价函", cat: "price" },
+            { x: 0.22, y: 0.4, text: "价格变动公告", cat: "price" },
+
+            // 物流相关
+            { x: 0.7, y: 0.3, text: "发货时间说明", cat: "shipping" },
+            { x: 0.75, y: 0.35, text: "快递配送指南", cat: "shipping" },
+            { x: 0.68, y: 0.25, text: "物流查询方法", cat: "shipping" },
+            { x: 0.72, y: 0.4, text: "包裹跟踪教程", cat: "shipping" },
+
+            // 售后相关
+            { x: 0.45, y: 0.75, text: "退款流程", cat: "refund" },
+            { x: 0.5, y: 0.8, text: "退货政策", cat: "refund" },
+            { x: 0.4, y: 0.7, text: "换货说明", cat: "refund" },
+            { x: 0.55, y: 0.72, text: "售后服务指南", cat: "refund" },
+        ];
+
+        // 查询点
+        const queries = {
+            "涨价": { x: 0.22, y: 0.32 },
+            "发货": { x: 0.71, y: 0.32 },
+            "退款": { x: 0.47, y: 0.74 },
+        };
+
+        const catColors = {
+            price: "#fa0",
+            shipping: "#0f0",
+            refund: "#0ff",
+        };
+
+        // 坐标转换
+        const toX = x => 60 + x * (W - 120);
+        const toY = y => 40 + y * (H - 100);
+
+        // 绘制网格
+        for (let i = 0; i <= 10; i++) {
+            svg.append("line")
+                .attr("x1", toX(i/10))
+                .attr("y1", toY(0))
+                .attr("x2", toX(i/10))
+                .attr("y2", toY(1))
+                .attr("stroke", "#1a1a1a")
+                .attr("stroke-width", 1);
+            svg.append("line")
+                .attr("x1", toX(0))
+                .attr("y1", toY(i/10))
+                .attr("x2", toX(1))
+                .attr("y2", toY(i/10))
+                .attr("stroke", "#1a1a1a")
+                .attr("stroke-width", 1);
+        }
+
+        // 绘制文档点
+        const docGroup = svg.append("g");
+        docs.forEach((doc, i) => {
+            const g = docGroup.append("g")
+                .attr("class", `doc-${i}`)
+                .attr("transform", `translate(${toX(doc.x)}, ${toY(doc.y)})`);
+
+            g.append("circle")
+                .attr("r", 8)
+                .attr("fill", catColors[doc.cat])
+                .attr("opacity", 0.6);
+
+            g.append("text")
+                .attr("x", 12)
+                .attr("y", 4)
+                .attr("fill", "#666")
+                .attr("font-size", "10px")
+                .text(doc.text);
+        });
+
+        // 查询点和连线
+        let queryPoint = null;
+        let searchLines = [];
+
+        function searchQuery(query) {
+            resetSearch();
+
+            const q = queries[query];
+            const qx = toX(q.x);
+            const qy = toY(q.y);
+
+            // 绘制查询点
+            queryPoint = svg.append("g").attr("class", "query-point");
+
+            queryPoint.append("circle")
+                .attr("cx", qx)
+                .attr("cy", qy)
+                .attr("r", 12)
+                .attr("fill", "#f55")
+                .attr("opacity", 0);
+
+            queryPoint.select("circle")
+                .transition()
+                .duration(300)
+                .attr("opacity", 0.9);
+
+            queryPoint.append("text")
+                .attr("x", qx)
+                .attr("y", qy - 20)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#f55")
+                .attr("font-size", "12px")
+                .attr("font-weight", "600")
+                .text(`"${query}"`);
+
+            // 计算距离并排序
+            const distances = docs.map((doc, i) => ({
+                index: i,
+                doc: doc,
+                dist: Math.sqrt(Math.pow(doc.x - q.x, 2) + Math.pow(doc.y - q.y, 2))
+            })).sort((a, b) => a.dist - b.dist);
+
+            // 高亮最近的3个
+            const top3 = distances.slice(0, 3);
+
+            top3.forEach((item, rank) => {
+                const doc = item.doc;
+                const dx = toX(doc.x);
+                const dy = toY(doc.y);
+
+                // 连线
+                const line = svg.append("line")
+                    .attr("class", "search-line")
+                    .attr("x1", qx)
+                    .attr("y1", qy)
+                    .attr("x2", qx)
+                    .attr("y2", qy)
+                    .attr("stroke", "#f55")
+                    .attr("stroke-width", 2)
+                    .attr("stroke-dasharray", "4,4")
+                    .attr("opacity", 0.5);
+
+                line.transition()
+                    .delay(rank * 200)
+                    .duration(400)
+                    .attr("x2", dx)
+                    .attr("y2", dy);
+
+                searchLines.push(line);
+
+                // 高亮点
+                setTimeout(() => {
+                    d3.select(`.doc-${item.index} circle`)
+                        .transition()
+                        .duration(200)
+                        .attr("r", 14)
+                        .attr("opacity", 1);
+                }, rank * 200 + 400);
+            });
+
+            // 更新状态
+            const resultText = top3.map((item, i) => `${i+1}. ${item.doc.text}`).join("  ");
+            d3.select("#status").html(`<strong>搜索结果：</strong>${resultText}`);
+        }
+
+        function resetSearch() {
+            if (queryPoint) queryPoint.remove();
+            searchLines.forEach(l => l.remove());
+            searchLines = [];
+
+            docs.forEach((_, i) => {
+                d3.select(`.doc-${i} circle`)
+                    .transition()
+                    .duration(200)
+                    .attr("r", 8)
+                    .attr("opacity", 0.6);
+            });
+
+            d3.select("#status").text("");
+        }
+
+        // 图例
+        const legend = svg.append("g").attr("transform", `translate(${W - 140}, 20)`);
+        [
+            { color: "#fa0", label: "价格相关" },
+            { color: "#0f0", label: "物流相关" },
+            { color: "#0ff", label: "售后相关" },
+            { color: "#f55", label: "搜索查询" },
+        ].forEach((item, i) => {
+            legend.append("circle")
+                .attr("cx", 0)
+                .attr("cy", i * 20)
+                .attr("r", 6)
+                .attr("fill", item.color)
+                .attr("opacity", 0.8);
+            legend.append("text")
+                .attr("x", 14)
+                .attr("y", i * 20 + 4)
+                .attr("fill", "#666")
+                .attr("font-size", "11px")
+                .text(item.label);
+        });
+    </script>
+</body>
+</html>

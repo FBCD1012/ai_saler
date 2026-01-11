@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 销售助手</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #000;
+            min-height: 100vh;
+            color: #fff;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        header {
+            text-align: center;
+            padding: 32px 0;
+            border-bottom: 1px solid #1a1a1a;
+            margin-bottom: 24px;
+        }
+        h1 {
+            font-size: 1.5em;
+            font-weight: 400;
+        }
+        h1 span { color: #fa0; }
+        .subtitle {
+            color: #666;
+            font-size: 0.85em;
+            margin-top: 8px;
+        }
+        .stats {
+            display: inline-block;
+            background: #111;
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 0.75em;
+            color: #888;
+            margin-top: 12px;
+        }
+        .chat-container {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        .messages {
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .message {
+            margin-bottom: 16px;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .message.user {
+            text-align: right;
+        }
+        .message.user .bubble {
+            background: #fa0;
+            color: #000;
+            display: inline-block;
+            padding: 10px 16px;
+            border-radius: 16px 16px 4px 16px;
+            max-width: 80%;
+        }
+        .message.assistant .bubble {
+            background: #1a1a1a;
+            display: inline-block;
+            padding: 10px 16px;
+            border-radius: 16px 16px 16px 4px;
+            max-width: 80%;
+            line-height: 1.6;
+        }
+        .refs {
+            margin-top: 12px;
+            padding: 12px;
+            background: #111;
+            border-radius: 8px;
+            font-size: 0.8em;
+        }
+        .refs-title {
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .ref-item {
+            color: #888;
+            padding: 6px 0;
+            border-bottom: 1px solid #1a1a1a;
+        }
+        .ref-item:last-child { border: none; }
+        .ref-product {
+            color: #fa0;
+            font-size: 0.9em;
+        }
+        .input-area {
+            display: flex;
+            gap: 12px;
+            padding: 16px;
+            background: #111;
+            border-top: 1px solid #1a1a1a;
+        }
+        input[type="text"] {
+            flex: 1;
+            background: #0a0a0a;
+            border: 1px solid #2a2a2a;
+            border-radius: 100px;
+            padding: 12px 20px;
+            color: #fff;
+            font-size: 0.95em;
+            outline: none;
+        }
+        input[type="text"]:focus {
+            border-color: #fa0;
+        }
+        button {
+            background: #fa0;
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 100px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover {
+            box-shadow: 0 0 20px rgba(255,170,0,0.4);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .typing {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #fa0;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #444;
+        }
+        .empty-state h3 {
+            font-size: 1.1em;
+            font-weight: 400;
+            margin-bottom: 12px;
+        }
+        .examples {
+            margin-top: 20px;
+        }
+        .example-btn {
+            background: #1a1a1a;
+            color: #888;
+            border: 1px solid #2a2a2a;
+            padding: 8px 16px;
+            border-radius: 100px;
+            margin: 4px;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .example-btn:hover {
+            border-color: #fa0;
+            color: #fa0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI <span>销售助手</span></h1>
+            <p class="subtitle">基于 RAG + Qwen2.5 的智能客服辅助</p>
+            <div class="stats" id="stats">加载中...</div>
+        </header>
+
+        <div class="chat-container">
+            <div class="messages" id="messages">
+                <div class="empty-state" id="empty-state">
+                    <h3>输入客户问题，获取专业回复建议</h3>
+                    <div class="examples">
+                        <button class="example-btn" onclick="askExample(this)">客户说太贵了怎么办？</button>
+                        <button class="example-btn" onclick="askExample(this)">客户要求打折怎么回复？</button>
+                        <button class="example-btn" onclick="askExample(this)">如何应对客户比价？</button>
+                    </div>
+                </div>
+            </div>
+            <div class="input-area">
+                <input type="text" id="input" placeholder="输入客户问题或场景描述..." autocomplete="off">
+                <button id="send-btn" onclick="sendMessage()">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const messagesEl = document.getElementById('messages');
+        const inputEl = document.getElementById('input');
+        const sendBtn = document.getElementById('send-btn');
+        const emptyState = document.getElementById('empty-state');
+
+        // 加载统计
+        fetch('/api/stats')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('stats').textContent = `知识库: ${data.document_count} 条对话`;
+            });
+
+        // 示例点击
+        function askExample(btn) {
+            inputEl.value = btn.textContent;
+            sendMessage();
+        }
+
+        // 回车发送
+        inputEl.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // 发送消息
+        async function sendMessage() {
+            const question = inputEl.value.trim();
+            if (!question) return;
+
+            // 隐藏空状态
+            if (emptyState) emptyState.style.display = 'none';
+
+            // 显示用户消息
+            addMessage('user', question);
+            inputEl.value = '';
+            sendBtn.disabled = true;
+
+            // 显示加载状态
+            const loadingId = addMessage('assistant', '<span class="typing"></span> 思考中...');
+
+            try {
+                // 使用流式接口
+                const response = await fetch('/api/stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let answer = '';
+                let refs = [];
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const text = decoder.decode(value);
+                    const lines = text.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                if (data.type === 'refs') {
+                                    refs = data.data;
+                                } else if (data.type === 'text') {
+                                    answer += data.data;
+                                    updateMessage(loadingId, answer, refs);
+                                } else if (data.type === 'error') {
+                                    updateMessage(loadingId, '错误: ' + data.data, []);
+                                }
+                            } catch (e) {}
+                        }
+                    }
+                }
+
+                // 最终更新
+                if (answer) {
+                    updateMessage(loadingId, answer, refs);
+                }
+            } catch (error) {
+                updateMessage(loadingId, '请求失败: ' + error.message, []);
+            }
+
+            sendBtn.disabled = false;
+            inputEl.focus();
+        }
+
+        function addMessage(role, content) {
+            const id = 'msg-' + Date.now();
+            const div = document.createElement('div');
+            div.id = id;
+            div.className = `message ${role}`;
+            div.innerHTML = `<div class="bubble">${content}</div>`;
+            messagesEl.appendChild(div);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            return id;
+        }
+
+        function updateMessage(id, content, refs) {
+            const el = document.getElementById(id);
+            if (!el) return;
+
+            let html = `<div class="bubble">${escapeHtml(content)}</div>`;
+
+            if (refs && refs.length > 0) {
+                html += `<div class="refs">
+                    <div class="refs-title">参考来源:</div>
+                    ${refs.map(r => `
+                        <div class="ref-item">
+                            <span class="ref-product">${r.product}</span>
+                            <div>${r.preview}</div>
+                        </div>
+                    `).join('')}
+                </div>`;
+            }
+
+            el.innerHTML = html;
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML.replace(/\n/g, '<br>');
+        }
+    </script>
+</body>
+</html>

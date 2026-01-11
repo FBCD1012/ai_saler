@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.DS_Store
+.env
+*.log
+node_modules/
+
+# 大模型文件
+output/
+*.gguf
+*.safetensors
+*.pt
+
+# 虚拟环境
+venv/
+**/venv/
+.venv/
