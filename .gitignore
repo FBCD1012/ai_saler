@@ -15,3 +15,11 @@ output/
 venv/
 **/venv/
 .venv/
+
+# 训练数据
+data/
+training_data/
+*.jsonl
+
+# Playwright 截图
+.playwright-mcp/
