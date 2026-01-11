@@ -9,25 +9,47 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 本地 RAG（检索增强生成）架构设计
 - Claude Code Hooks 机制探索
 
+## 项目结构
+
+```
+ai_saler_backend/
+├── model/                  # 模型训练相关
+│   ├── generate_dialogues.py
+│   ├── prepare_data.py
+│   ├── train_lora.py
+│   ├── test_model.py
+│   ├── merge_and_export.py
+│   └── Modelfile
+├── data/                   # 数据文件
+│   ├── dialogue_data.jsonl
+│   └── training_data/
+├── docs/                   # 可视化文档
+├── sales_assistant/        # RAG 应用
+└── output/                 # 训练输出（自动生成）
+```
+
 ## 常用命令
 
 ```bash
 # 生成对话训练数据
-python3 generate_dialogues.py
+python3 model/generate_dialogues.py
+
+# 数据预处理
+python3 model/prepare_data.py
 
 # 启动本地服务器查看 HTML 可视化
 python3 -m http.server 8000
 
 # 打开可视化文档
-open sales_assistant_architecture.html
-open lora_explain.html
-open vector_db_explain.html
+open docs/sales_assistant_architecture.html
+open docs/lora_explain.html
+open docs/vector_db_explain.html
 ```
 
 ## 架构
 
 ### 数据生成流程
-`generate_dialogues.py` → `dialogue_data.jsonl`
+`model/generate_dialogues.py` → `data/dialogue_data.jsonl`
 - 30 种电子产品库
 - 3 轮对话模式：询价 → 砍价 → 成交
 - 输出 JSONL 格式，包含 id、product、round、role、content 字段
@@ -37,7 +59,7 @@ open vector_db_explain.html
 用户 → Flask API → BGE-M3 Embedding → Chroma 向量库
                  → Ollama + Qwen2.5 LLM → 响应
 ```
-详见 `sales_assistant_architecture.html`
+详见 `docs/sales_assistant_architecture.html`
 
 ## Claude Code 配置
 

@@ -132,8 +132,8 @@ def save_json(data: list[dict], filepath: str):
 
 def main():
     # 路径配置
-    input_file = Path(__file__).parent / "dialogue_data.jsonl"
-    output_dir = Path(__file__).parent / "training_data"
+    input_file = Path(__file__).parent.parent / "data" / "dialogue_data.jsonl"
+    output_dir = Path(__file__).parent.parent / "data" / "training_data"
     output_dir.mkdir(exist_ok=True)
 
     print(f"读取数据: {input_file}")

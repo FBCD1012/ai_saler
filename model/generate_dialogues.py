@@ -160,12 +160,15 @@ def generate_dialogue(dialogue_id, product):
     return dialogues
 
 def main():
+    from pathlib import Path
+    data_file = Path(__file__).parent.parent / "data" / "dialogue_data.jsonl"
+
     all_dialogues = []
 
     # 读取已有数据
     existing_count = 0
     try:
-        with open("dialogue_data.jsonl", "r") as f:
+        with open(data_file, "r") as f:
             existing_count = sum(1 for _ in f)
     except:
         pass
@@ -183,7 +186,7 @@ def main():
         dialogue_id += 1
 
     # 追加到文件
-    with open("dialogue_data.jsonl", "a") as f:
+    with open(data_file, "a") as f:
         for d in all_dialogues[:target]:
             f.write(json.dumps(d, ensure_ascii=False) + "\n")
 
