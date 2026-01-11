@@ -4,84 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>向量数据库原理</title>
+    <link rel="stylesheet" href="styles/common.css">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #000;
-            min-height: 100vh;
-            color: #fff;
-        }
-        .page { max-width: 900px; margin: 0 auto; padding: 48px 24px; }
-        h1 { font-size: 1.6em; font-weight: 400; margin-bottom: 8px; }
+        /* 页面特有样式 */
+        .page { max-width: 900px; }
         h1 span { color: #fa0; }
-        .subtitle { color: #555; margin-bottom: 32px; font-size: 0.85em; }
-        .card {
-            background: #0a0a0a;
-            border: 1px solid #1a1a1a;
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 24px;
-        }
-        .card-title {
-            font-size: 0.7em;
-            font-weight: 600;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: #444;
-            margin-bottom: 16px;
-        }
-        svg { display: block; width: 100%; }
         #vector-svg { height: 360px; }
+        /* 橙色主题按钮 */
         .btn {
             background: #fa0;
-            color: #000;
-            border: none;
             padding: 10px 20px;
-            border-radius: 100px;
-            font-size: 0.8em;
-            font-weight: 600;
-            cursor: pointer;
             margin-right: 8px;
         }
         .btn:hover { box-shadow: 0 0 24px rgba(255,170,0,0.4); }
         .btn.active { background: #fff; }
-        .status { font-size: 0.85em; color: #888; margin-top: 16px; }
-        .compare {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-        .compare-box {
-            background: #111;
-            border-radius: 12px;
-            padding: 20px;
-        }
-        .compare-box h3 {
-            font-size: 0.85em;
-            color: #666;
-            margin-bottom: 12px;
-        }
-        .compare-box.highlight h3 { color: #fa0; }
-        .compare-box p {
-            font-size: 0.9em;
-            color: #aaa;
-            line-height: 1.6;
-        }
-        .compare-box code {
-            background: #1a1a1a;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.85em;
-        }
-        .note {
-            background: rgba(255,170,0,0.08);
-            border-left: 2px solid #fa0;
-            padding: 14px 18px;
-            margin-top: 16px;
+        /* 状态样式调整 */
+        .status {
             font-size: 0.85em;
             color: #888;
+            margin-top: 16px;
+            margin-left: 0;
+        }
+        .compare { margin-bottom: 0; }
+        /* 橙色主题 note */
+        .note {
+            background: rgba(255,170,0,0.08);
+            border-left-color: #fa0;
         }
         .note strong { color: #fa0; }
     </style>

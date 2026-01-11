@@ -1,0 +1,327 @@
+/* 公共样式 - AI 销售助手可视化文档 */
+
+/* Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* 基础样式 */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #000;
+    min-height: 100vh;
+    color: #fff;
+}
+
+/* 页面容器 */
+.page {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 48px 24px;
+}
+
+/* 标题 */
+h1 {
+    font-size: 1.6em;
+    font-weight: 400;
+    margin-bottom: 8px;
+}
+
+.subtitle {
+    color: #555;
+    margin-bottom: 32px;
+    font-size: 0.85em;
+}
+
+/* 卡片组件 */
+.card {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.card-title {
+    font-size: 0.7em;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #444;
+    margin-bottom: 16px;
+}
+
+/* 徽章 */
+.badge {
+    background: #0f0;
+    color: #000;
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: 0.7em;
+    font-weight: 600;
+}
+
+/* SVG 通用 */
+svg {
+    display: block;
+    width: 100%;
+}
+
+/* 按钮 */
+.btn {
+    background: #0f0;
+    color: #000;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 100px;
+    font-size: 0.8em;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn:hover {
+    box-shadow: 0 0 24px rgba(0, 255, 0, 0.4);
+}
+
+/* 提示框 */
+.note {
+    background: rgba(0, 255, 0, 0.05);
+    border-left: 2px solid #0f0;
+    padding: 14px 18px;
+    margin-top: 16px;
+    font-size: 0.85em;
+    color: #888;
+}
+
+.note strong {
+    color: #0f0;
+}
+
+/* 对比组件 */
+.compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.compare-box {
+    background: #111;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.compare-box h3 {
+    font-size: 0.85em;
+    color: #666;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.compare-box h3 .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.compare-box.bad h3 {
+    color: #f55;
+}
+
+.compare-box.good h3 {
+    color: #0f0;
+}
+
+.compare-box ul {
+    list-style: none;
+    font-size: 0.85em;
+    color: #888;
+}
+
+.compare-box li {
+    padding: 4px 0;
+}
+
+.compare-box p {
+    font-size: 0.9em;
+    color: #aaa;
+    line-height: 1.6;
+}
+
+.compare-box code {
+    background: #1a1a1a;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+
+.compare-box.highlight h3 {
+    color: #fa0;
+}
+
+/* 对比项（架构页面用） */
+.compare-item {
+    background: #0a0a0a;
+    border: 1px solid #1a1a1a;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.compare-item.active {
+    border-color: #0f0;
+}
+
+.compare-item h3 {
+    font-size: 0.9em;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.compare-item h3 .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.compare-item ul {
+    list-style: none;
+    font-size: 0.8em;
+    color: #888;
+}
+
+.compare-item li {
+    padding: 4px 0;
+}
+
+.compare-item li::before {
+    content: "→ ";
+    color: #444;
+}
+
+.highlight {
+    color: #0f0;
+}
+
+/* 代码块 */
+.code-block {
+    background: #111;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 16px;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 0.8em;
+    color: #0f0;
+    overflow-x: auto;
+}
+
+.code-block .comment {
+    color: #666;
+}
+
+.code-block .cmd {
+    color: #0ff;
+}
+
+/* 数据示例 */
+.data-example {
+    background: #111;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 16px;
+    font-size: 0.85em;
+}
+
+.data-example pre {
+    color: #888;
+    white-space: pre-wrap;
+}
+
+.data-example .key {
+    color: #0ff;
+}
+
+.data-example .value {
+    color: #0f0;
+}
+
+/* 步骤组件 */
+.steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.step {
+    background: #111;
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+}
+
+.step-num {
+    width: 28px;
+    height: 28px;
+    background: #f0f;
+    color: #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.85em;
+    margin: 0 auto 10px;
+}
+
+.step-title {
+    font-size: 0.85em;
+    color: #fff;
+    margin-bottom: 6px;
+}
+
+.step-desc {
+    font-size: 0.75em;
+    color: #666;
+}
+
+/* 技术标签 */
+.tech-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+.tech-tag {
+    background: #111;
+    border: 1px solid #222;
+    padding: 8px 14px;
+    border-radius: 100px;
+    font-size: 0.75em;
+    color: #666;
+}
+
+.tech-tag strong {
+    color: #0f0;
+    margin-right: 4px;
+}
+
+/* 状态文字 */
+.status {
+    font-size: 0.8em;
+    color: #555;
+    margin-left: 12px;
+}
